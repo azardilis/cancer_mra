@@ -1,31 +1,43 @@
 library(igraph)
 library(RedeR)
 
-createNetworkCor <- function(expr.data, cor.cutoff) {
+createNetwork <- function(dat, fun, cutoff) {
     # Takes an expr.data matrix and returns a igraph where
     # nodes are the genes in expr.data. Nodes are connected
     # if their correlation coeff is larger than cor.cutoff
-    cor.mat <- cor(expr.data, expr.data)
-    adj.mat <- (abs(cor.mat) > cor.cutoff) * 1
-    cor.graph <- graph.adjacency(adj.mat)
+    cor.mat <- fun(dat$tfs, dat$genes)
+    adj.mat <- (abs(cor.mat) > cutoff) * 1
+    edges <- which(adj.mat==1, arr.ind = T)
+    edges <- unlist(mapply(c, edges[, 1], edges[,2], SIMPLIFY = FALSE))
+    g <- graph(edges=edges,directed = FALSE)
 
-    return(cor.graph)
+    return(g)
 }
 
 
+splitSets <- function(expr.data, annotation) {
+    expr.data <- cbind(expr.data, annotation$is.TF)
+    tfs <- expr.data[expr.data$annotation == TRUE, ]
+    genes <- expr.data[expr.data$annotation== FALSE, ]
+    colnames(genes)[998] <- "annotation"
+    genes$annotation <- NULL
+    colnames(tfs)[998] <- "annotation"
+    tfs$annotation <- NULL
+    tfs.mat <- t(as.matrix(tfs))
+    genes.mat <- t(as.matrix(genes))
 
-#first load the annotation and expression data
-#reduce expression data to matrix to only include annotated probes
+    return(tfs=tfs.mat, genes=genes.mat)
+}
 
 
-#fake dataset
-expr.data <- matrix(rnorm(25), nrow=5)
-cor.graph <- createNetworkCor(expr.data, 0.75)
-
-
-#visualise network using RederR
+load("annotation.RData")
 rdp <- RedPort()
 calld(rdp)
+expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",header=T,
+                        comment.char="", row.names=1)
+dat <- splitSets(expr.dat, annotation)
+g <- createNetwork(dat, cor, 0.65)
+
 addGraph(rdp,cor.graph)
 
     
