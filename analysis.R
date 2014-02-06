@@ -26,18 +26,18 @@ splitSets <- function(expr.data, annotation) {
     tfs.mat <- t(as.matrix(tfs))
     genes.mat <- t(as.matrix(genes))
 
-    return(tfs=tfs.mat, genes=genes.mat)
+    return(list(tfs=tfs.mat, genes=genes.mat))
 }
 
 
-load("annotation.RData")
+load("data/annotation.RData")
 rdp <- RedPort()
 calld(rdp)
 expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",header=T,
                         comment.char="", row.names=1)
-dat <- splitSets(expr.dat, annotation)
+dat <- splitSets(expr.data, annotation)
 g <- createNetwork(dat, cor, 0.65)
 
-addGraph(rdp,cor.graph)
+addGraph(rdp, g)
 
     
