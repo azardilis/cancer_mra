@@ -29,15 +29,31 @@ splitSets <- function(expr.data, annotation) {
     return(list(tfs=tfs.mat, genes=genes.mat))
 }
 
+getBiadjacencyMat <- function(adj.mat, tfs) {
+    tfs.ind <- tfs[tfs=="TRUE"]
+    genes.ind <- tfs[tfs=="FALSE"]
+
+    return(adj.mat[tfs.ind, tfs])
+}
+
+getEdges <- function(adj.mat) {
+    edges <- which(adj.mat==1, arr.ind = T)
+    edges <- unlist(mapply(c, edges[, 1], edges[,2], SIMPLIFY = FALSE))
+
+    return(edges)
+}
 
 load("data/annotation.RData")
+expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",
+                        header=T, comment.char="", row.names=1)
+tfs <- read.table("/home/argyris/compbio/nb/cancer_mra/data/disc_set/tfs.txt")
+expr.mat <- t(as.matrix(expr.data))
+cor.mat <- cor(expr.mat)
+
+
+
 rdp <- RedPort()
 calld(rdp)
-expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",header=T,
-                        comment.char="", row.names=1)
-dat <- splitSets(expr.data, annotation)
-g <- createNetwork(dat, cor, 0.65)
-
 addGraph(rdp, g)
 
     
