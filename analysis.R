@@ -1,32 +1,25 @@
 library(igraph)
 library(RedeR)
 
-createNetwork <- function(dat, fun, cutoff) {
+createNetworkCor <- function(expr.data, cutoff) {
     # Takes an expr.data matrix and returns a igraph where
     # nodes are the genes in expr.data. Nodes are connected
     # if their correlation coeff is larger than cor.cutoff
-    cor.mat <- fun(dat$tfs, dat$genes)
-    adj.mat <- (abs(cor.mat) > cutoff) * 1
-    edges <- which(adj.mat==1, arr.ind = T)
-    edges <- unlist(mapply(c, edges[, 1], edges[,2], SIMPLIFY = FALSE))
-    g <- graph(edges=edges,directed = FALSE)
-
-    return(g)
+    expr.mat <- t(as.matrix(expr.data))
+    cor.mat <- cor(expr.mat)
+    
+    adj.mat  <- (abs(cor.mat > cutoff)) * 1
+    
+    return(adj.mat)
 }
 
-
-splitSets <- function(expr.data, annotation) {
-    expr.data <- cbind(expr.data, annotation$is.TF)
-    tfs <- expr.data[expr.data$annotation == TRUE, ]
-    genes <- expr.data[expr.data$annotation== FALSE, ]
-    colnames(genes)[998] <- "annotation"
-    genes$annotation <- NULL
-    colnames(tfs)[998] <- "annotation"
-    tfs$annotation <- NULL
-    tfs.mat <- t(as.matrix(tfs))
-    genes.mat <- t(as.matrix(genes))
-
-    return(list(tfs=tfs.mat, genes=genes.mat))
+getOlaps  <- function(badj.mat, k=10) {
+  tf.olaps <- badj.mat %*% t(badj.mat)  
+  diag(tf.olaps)  <- 0
+  olaps <- unlist(mapply(rep, names(table(tf.olaps)), table(tf.olaps)))
+  l.olaps <- unique(sort(as.numeric(olaps), decreasing=T))
+ 
+  return(tf.olaps)
 }
 
 getBiadjacencyMat <- function(adj.mat, tfs) {
@@ -47,9 +40,7 @@ load("data/annotation.RData")
 expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",
                         header=T, comment.char="", row.names=1)
 tfs <- read.table("data/disc_set/tfs.txt")
-expr.mat <- t(as.matrix(expr.data))
-cor.mat <- cor(expr.mat)
-
+adj.mat  <- createAdjMat(expr.data, 0.5)
 
 
 rdp <- RedPort()
