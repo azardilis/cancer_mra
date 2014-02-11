@@ -46,7 +46,7 @@ getEdges <- function(adj.mat) {
 load("data/annotation.RData")
 expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",
                         header=T, comment.char="", row.names=1)
-tfs <- read.table("/home/argyris/compbio/nb/cancer_mra/data/disc_set/tfs.txt")
+tfs <- read.table("data/disc_set/tfs.txt")
 expr.mat <- t(as.matrix(expr.data))
 cor.mat <- cor(expr.mat)
 
@@ -56,4 +56,4 @@ rdp <- RedPort()
 calld(rdp)
 addGraph(rdp, g)
 
-    
+
