@@ -7,18 +7,18 @@ createNetworkCor <- function(expr.data, cutoff) {
     # if their correlation coeff is larger than cor.cutoff
     expr.mat <- t(as.matrix(expr.data))
     cor.mat <- cor(expr.mat)
-    
+
     adj.mat  <- (abs(cor.mat > cutoff)) * 1
-    
+
     return(adj.mat)
 }
 
 getOlaps  <- function(badj.mat, k=10) {
-  tf.olaps <- badj.mat %*% t(badj.mat)  
+  tf.olaps <- badj.mat %*% t(badj.mat)
   diag(tf.olaps)  <- 0
   olaps <- unlist(mapply(rep, names(table(tf.olaps)), table(tf.olaps)))
   l.olaps <- unique(sort(as.numeric(olaps), decreasing=T))
- 
+
   return(tf.olaps)
 }
 
