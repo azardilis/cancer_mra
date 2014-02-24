@@ -1,0 +1,5 @@
+data/
+papers/
+dream/
+*.txt
+octave-workspace
