@@ -39,7 +39,7 @@ buildNetPCor <- function(expr.data, tfs, p.cutoff) {
     inf.cor <- cor(expr.mat)
     inf.pcor <- cor2pcor(inf.cor)
 
-    test.results <- ggm.test.edges(inf.pcor)
+    test.results <- ggm.test.edges(inf.pcor, plot=FALSE)
     net.edges <- test.results[test.results$pval < p.cutoff, ]
 
     nodes1 <- colnames(inf.cor)[net.edges$node1]
