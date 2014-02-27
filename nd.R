@@ -83,6 +83,7 @@ adj.mat  <- abs(as.matrix(get.adjacency(g.df, attr="weight")))
 tfs  <- as.character(read.table("dream/net1_transcription_factors.tsv")$V1)
 
 badj.mat  <- adj.mat[tfs, ]
+badj.mat.nd  <- ndReg(badj.mat)
 
 edges.out  <- read.table("dream/net1_expression_data_Pearson-ND_predictions.txt")
 colnames(edges.out)[3]  <- "weight"
@@ -90,6 +91,9 @@ g.out  <- graph.data.frame(edges.out)
 adj.out  <- abs(as.matrix(get.adjacency(g.out, attr="weight")))
 
 badj.out  <- adj.out[tfs, ]
+
+#order it the same way as the other output so can be comparable
+badj.out  <- badj.out(rownames(badj.mat.nd), colnames(badj.mat.nd))
 
 
 
