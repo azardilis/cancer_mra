@@ -1,7 +1,8 @@
 mraAnalysis <- function(g, exp="Exp1", cont="E2FGF10", p.cutoff=0.05) {
   adj.mat  <- as.matrix(get.adjacency(g))
   tfs <- which(get.vertex.attribute(g.mi, "type") == FALSE)
-  badj.mat  <- adj.mat[tfs, ]
+  genes  <- setdiff(1:ncol(adj.mat), tfs)
+  badj.mat  <- adj.mat[tfs, genes]
   universe  <- colnames(adj.mat)
   sigt  <- Fletcher2013pipeline.deg(what=exp)
   hits  <- get(cont, sigt)
@@ -15,16 +16,26 @@ mraAnalysis <- function(g, exp="Exp1", cont="E2FGF10", p.cutoff=0.05) {
 }
 
 #correlation network
-res <- vector(mode = "list", length = 3)
-contrasts  <- c("E2FGF10", "E2AP20187", "TetE2FGF10")
-for(i in 1:3) {
-  print(i)
-  hgt.result <- mraAnalysis(g.pcor, exp=paste("Exp", i, sep=""), cont=contrasts[i])
-  res[[i]]  <- hgt.result
+multTest  <- function(g, p.cutoff) {
+  res <- vector(mode = "list", length = 3)
+  contrasts  <- c("E2FGF10", "E2AP20187", "TetE2FGF10")
+  for(i in 1:3) {
+    print(i)
+    hgt.result <- mraAnalysis(g, exp=paste("Exp", i, sep=""), cont=contrasts[i],
+                              p.cutoff=p.cutoff)
+    res[[i]]  <- hgt.result
+  }
+  
+  return(res)
 }
 
-fg.ids  <- lapply(res, rownames)
-tfs.s  <- Reduce(intersect, fg.ids)
+getOlapsExp  <- function(res) {
+  fg.ids  <- lapply(res, rownames)
+  tfs.s  <- Reduce(intersect, fg.ids)
+  
+  return(tfs.s)
+}
+
 annotation[which(annotation$probeID %in% tfs.s)]
 
 
