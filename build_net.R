@@ -58,19 +58,23 @@ buildNetPCor <- function(expr.data, tfs, p.cutoff) {
 }
 
 buildNetMI <- function(g.MI, tfs, annotation) {
-    adj <- as.matrix(get.adjacency(g.MI))
+    adj <- as.matrix(get.adjacency(g.MI, attr="weight"))
     pids <- annotation$probeID[which(annotation$probeID %in% rownames(adj))]
     tfs <- tfs[which(tfs %in% pids)]
     genes <- which(!(pids %in% tfs))
     badj.mat <- adj[tfs, genes]
-    g <- graph.incidence(badj.mat)
+    g <- graph.incidence(badj.mat, weighted="weight")
 
     return(g)
 }
 
 
-getBadj  <- function(g) {
-    adj.mat  <- as.matrix(get.adjacency(g))
+getBadj  <- function(g, weight) {
+    if(weight == TRUE) {
+      adj.mat  <- as.matrix(get.adjacency(g, attr="weight"))
+    } else {
+      adj.mat  <- as.matrix(get.adjacency(g))
+    }
     tfs <- which(get.vertex.attribute(g, "type") == FALSE)
     
     badj.mat  <- adj.mat[tfs, -tfs]
