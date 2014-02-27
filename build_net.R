@@ -61,7 +61,7 @@ buildNetMI <- function(g.MI, tfs, annotation) {
     adj <- as.matrix(get.adjacency(g.MI, attr="weight"))
     pids <- annotation$probeID[which(annotation$probeID %in% rownames(adj))]
     tfs <- tfs[which(tfs %in% pids)]
-    genes <- which(!(pids %in% tfs))
+    genes <- setdiff(pids, tfs)
     badj.mat <- adj[tfs, genes]
     g <- graph.incidence(badj.mat, weighted="weight")
 
@@ -101,6 +101,7 @@ olapAnalysis <- function(badj.mat, vis=FALSE) {
 #write the annotated gene IDs to be used so can do the reduction in python
 load("data/annotation.RData")
 load("data/g.MI.RData")
+load("data/g.MI.DPI.RData")
 write.table(annotation$probeID, file="data/annotation.dat", quote=FALSE, row.names=FALSE,
             col.names=FALSE)
 expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",
