@@ -39,6 +39,17 @@ getOlapsExp  <- function(res) {
 annotation[which(annotation$probeID %in% tfs.s)]
 
 
+all.tfs  <- unique(c(tfs.cor, tfs.mi.dpi, tfs.mi, tfs.pcor))
+tfs.list  <- list(tfs.cor, tfs.pcor, tfs.mi, tfs.mi.dpi)
+
+m  <- t(sapply(all.tfs, function(tf) {sapply(tfs.list, function(l){tf %in% l})}))
+sm  <- apply(m, 1, function(x){table(x)["TRUE"]})
+sm  <- sm[sm >= 2]
+tfs.s  <- names(sm)
+tfs.symbol  <- annotation[annotation$probeID %in% tfs.s, 2]
+tfs.table  <- cbind(tfs.symbol, m[tfs.s, ])
+colnames(tfs.table) <- c("Name", "Cor", "PCor", "MI", "MI+DPI")
+
 
 
 
