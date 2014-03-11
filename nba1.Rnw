@@ -1,4 +1,5 @@
-\documentclass[12pt]{article}
+
+\documentclass[a4paper, 11pt]{article}
 \usepackage{fullpage}
 \usepackage{caption}
 \usepackage{subcaption}
@@ -6,19 +7,24 @@
 \usepackage{amssymb}
 \usepackage{amsmath}
 \usepackage{amsthm}
+\usepackage{hyperref}
 \author{Argyris Zardilis \\ \texttt{az325@cam.ac.uk}}
+\bibliographystyle{unsrt}
+
 \begin{document}
 
-<<env, echo=FALSE, results='hide'>>=
-set.seed(0)
+<<env, echo=FALSE, results="hide", message=FALSE>>=
+set.seed(100)
 library("xtable")
 library("knitr")
 library("igraph")
 library("GeneNet")
 library("corpcor")
-library("ggplot2")
-opts_chunk$set(fig.align = 'center',
-               tidy = FALSE)
+library("Fletcher2013b")
+library("HTSanalyzeR")
+library("xtable")
+library("minet")
+pdf.options(useDingbats = TRUE)
 @
 
 \title{Network Biology Assignment 1}
@@ -29,7 +35,7 @@ opts_chunk$set(fig.align = 'center',
 \subsection{Methods}
 The main datasets used in trying to infer cellular networks are gene expression data since the components of the dependence networks to be inferred are usually genes or their direct protein products which act as transcription factors for other genes. We treat each gene's expression level $i$ as a random variable $x_{i}$ giving a vector of observations for all $n$ genes for one experiment $\mathbf{X} = \{x_1, x_2, \dots, x_n\}$. Usually we have more than one realisation of the gene expression levels from multiple experiments, thus for $m$ samples we get the entire dataset $\mathbf{D} = \{\mathbf{X}^1, \mathbf{X}^2, \dots, \mathbf{X}^m\}$ which essentially forms an $m \times n$ matrix of observations/realisations of the expression levels of all the components(genes) of the system under investigation. The goal of the network inference process then becomes the inverse problem of going from this dataset $\mathbf{D}$ to a regulatory network that created it, a network where the vertices are the $n$ genes and the edges represent dependencies between them. We decide dependence between two genes $i$ and $j$ using a similatiry measurement $sim(\mathbf{x}_i, \mathbf{x}_j)$ where $\mathbf{x}_i=\{x_i^1, x_i^2, \dots, x_i^m\}$ and $\mathbf{x}_j=\{x_j^1, x_j^2, \dots, x_j^m\}$ in the hope that similarity implies coregulation.
 
-The inference problem is two-fold, firstly the $sim$ function assessing similarity between two random variables $\mathbf{x}_i$ and $\mathbf{x_j}$(for genes $i$, $j$ respectively) must be chosen and then the significance of the similarity measurement must be assesed to determine if the connections are genuine. The last part can be extended to removing indirect connections between components which might be created by indirect dependencies between them so tha the resulting networks will be more biologically relevant and more resemblent of the biological causal relationships between transcription factors(or their parent genes) and the genes they control. The simpler metric used is that of correlation. The network inference procedure proceeds by calculating all pair-wise correlation $cor(\mathbf{x}_i, \mathbf{x}_j) \, \forall \, i,\, j$ where $\: i \neq j$. Then if a pairwise correlation is above a certain threshold a connection is added to the network between the pair. Alternatively the significance of the correlation can be tested if it is significantly different than $0$ using a statitistical test and then the decision can be made with a p-value cutoff. Another metric used for similarity is borrowed from information theory and that is the Mutual Information(MI) between the random variables. The process proceeds in the same way by calculating all pair-wise MI between all the random variables and then make connections between them if their MI is above a certain threshold. 
+The inference problem is two-fold, firstly the $sim$ function assessing similarity between two random variables $\mathbf{x}_i$ and $\mathbf{x_j}$(for genes $i$, $j$ respectively) must be chosen and then the significance of the similarity measurement must be assesed to determine if the connections are genuine. The last part can be extended to removing indirect connections between components which might be created by indirect dependencies between them so that the resulting networks will be more biologically relevant and more resemblent of the biological causal relationships between transcription factors(or their parent genes) and the genes they control. The simplest metric used is that of correlation. The network inference procedure proceeds by calculating all pair-wise correlations $cor(\mathbf{x}_i, \mathbf{x}_j) \, \forall \, i,\, j$ where $\: i \neq j$. Then if a pairwise correlation is above a certain threshold a connection is added to the network between the pair. Alternatively the significance of the correlation can be tested if it is significantly different than $0$ using a statitistical test and then the decision can be made with a p-value cutoff. Another metric used for similarity is borrowed from information theory and that is the Mutual Information(MI) between the random variables which is a measure of the decrease in uncertainty of one of them after observing the other. The process proceeds in the same way by calculating all pair-wise MI between all the random variables and then make connections between them if their MI is above a certain threshold.
 
 Another used metric is that of partial correlation which is different from the previous two in that it attempts to tackle the indirect correlations problem. Partial correlation between two random variables $\mathbf{x}_i$ and $\mathbf{x}_j$ is their correlation after removing the effects of all other control variables, all other genes in this case, $\{\mathbf{x}_k\ |\, k \neq (i, j)\}$. Table \ref{tab:prosConsMethods} summarises of the advantages and limitations of the three methods that I focused on in this assignment.
 
@@ -39,29 +45,49 @@ Another used metric is that of partial correlation which is different from the p
 \begin{tabular}{l|p{5cm}|p{5cm}}
                        & Advantages & Limitations    \\  \hline                                                                                                                                                                                                                        Correlation            & \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
                        \item Simple and easy to interpret, very intuitive measure of correlation.
-                        \item Widely used so there exist standard statistical significance tests(e.g. t-test). 
+                        \item Widely used so there exist standard statistical significance tests(e.g. t-test).
                         \item Provides for a good test of independence.
                         \end{itemize}
-                       & Linear measure of correlation so does not capture all non-linear 
-                       correlations between variables. Includes indirect correlations between 
-                       the variables. While good for independence does not give a strong basis for 
-                       dependence.\\
-                       
-Mutual Information(MI) & Comes from well-developed information theory field. 
-                        Can capture non-linear relationships between variables. 
-                        There exist standard techniques for removing indirect 
+                       & \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
+                       \item Linear measure of correlation so does not capture all non-linear
+                       correlations between variables.
+                       \item Includes indirect correlations between
+                       the variables.
+                       \item Does not give a strong basis for
+                       dependence.
+                       \end{itemize}
+                       \\
+
+Mutual Information(MI) &
+                        \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
+                        \item Comes from well-developed information theory field.
+                        \item Can capture non-linear relationships between variables.
+                        \item Standard results for removing indirect
                         dependencies between variables(DPI).
-                        & By default it also does not distinguish between direct and 
-                        indirect relationship between the variables. More difficult to 
-                        interpret than simple correlation. Also more difficult to test
-                        significance.\\
-                        
-Partial Correlation    & By default only contains strength of direct interactions. 
-                        Provides for a good test of dependence.  
-                        & More difficult to test significance. Not a very good 
-                        test of independence. Relies on the inverse of correlation/covariance matrix, can
-                        be a problem if n >> m.
-\end{tabular}   
+                        \end{itemize}
+                        &
+                        \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
+                        \item By default does not distinguish between direct and
+                        indirect relationship between the variables.
+                        \item More difficult to
+                        interpret than simple correlation.
+                        \item Also more difficult to test
+                        significance.
+                        \end{itemize}
+                        \\
+
+Partial Correlation    &
+                        \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
+                        \item By default only contains strength of direct interactions.
+                        \item Provides for a good test of dependence.
+                        \end{itemize}
+                        & \begin{itemize}[leftmargin=*, noitemsep, nolistsep]
+                        \item More difficult to test significance.
+                        \item Not a very good test of independence.
+                        \item Relies on the inverse of correlation/covariance matrix, can
+                        be a problem if $n >> m$.
+                        \end{itemize}
+\end{tabular}
 \caption{Summary of advantages and limitations of 3 methods of inferring networks, MI, Partial Correlation, and Correlation.}
 \label{tab:prosConsMethods}
 \end{table}
@@ -71,11 +97,15 @@ Partial Correlation    & By default only contains strength of direct interaction
 <<buildNet, echo=FALSE>>=
 load("data/annotation.RData")
 load("data/g.MI.RData")
+load("data/g.MI.DPI.RData")
 expr.data <- read.table(file="data/disc_set/discovery_ExpressionMatrix_red.txt",
                             header=T, comment.char="", row.names=1)
 tfs <- annotation[annotation$is.TF == TRUE, 1]
 
 corTest <- function(expr.mat) {
+    # Given an expression matrix calculate correlations between
+    # all pairs of genes and an associated adjusted p-value from a two
+    # sided t-test
     r <- cor(expr.mat)
     n <- nrow(expr.mat)
 
@@ -87,6 +117,10 @@ corTest <- function(expr.mat) {
 }
 
 buildNet <- function(cor.res, tfs, p.cutoff) {
+    # Given a matrix of correlations and associated p-values
+    # keep only the entries where p-value within p.cutoff
+    # Create TFxTargets adjacency matrix and create an
+    # igraph object from that
     sign <- cor.res$p < p.cutoff
 
     signf <- which(sign == FALSE)
@@ -108,6 +142,9 @@ buildNetCor <- function(expr.data, tfs, p.cutoff) {
 }
 
 buildNetPCor <- function(expr.data, tfs, p.cutoff) {
+    # Builds an igraph object from a set of expression data
+    # Testing done with GeneNet and significance testing
+    # with p-value cuttoff=p.cutoff
     expr.mat <- t(as.matrix(expr.data))
     inf.cor <- cor(expr.mat)
     inf.pcor <- cor2pcor(inf.cor)
@@ -131,26 +168,31 @@ buildNetPCor <- function(expr.data, tfs, p.cutoff) {
 }
 
 buildNetMI <- function(g.MI, tfs, annotation) {
-    adj <- as.matrix(get.adjacency(g.MI), attr="weight")
+    adj <- as.matrix(get.adjacency(g.MI, attr="weight"))
     pids <- annotation$probeID[which(annotation$probeID %in% rownames(adj))]
     tfs <- tfs[which(tfs %in% pids)]
-    genes <- which(!(pids %in% tfs))
+    genes <- setdiff(pids, tfs)
     badj.mat <- adj[tfs, genes]
     g <- graph.incidence(badj.mat, weighted="weight")
 
     return(g)
 }
+
 @
-I then proceeded to infer networks from a reduced METABRIC discovery dataset as used in \cite{fletcher2013master} using all 3 methods outlined above. The dataset consisted of all the 997 samples but only 2000 of the genes. The mutual information network was taken directly from the study while the other ones were inferred from scratch. For the correlation network I used Pearson correlation as a similatity function $sim$ between the expression profiles across all 997 samples of all pairs of genes. The significance of the results was tested with  a two-tailed t-test with null hypothesis that there is no correlation between the two variables(correlation=0). The calculated p-values were corrected for multiple testing and the final decision for rejecting the null hypothesis and introducing an edge between two components was done with a p-value cutoff of $0.01$. For the partial correlation I used the \texttt{corpcor} package to transform the correlation matrix between all variables into a partial correlation matrix and the significance of the results was tested with the package \texttt{GeneNet} and again the decision for an edge was based on a p-value cutoff of $0.01$. The MI inferred networks was taken directly from the study, the only processing done was to reduce the dataset down to the 2000 genes that were used in the other inferences. The resulting similarity matrices were converted to bipartite graphs between TFs and genes with \texttt{igraph}. The degree distributions of TFs can be seen in Figure \ref{fig:dgDistros}.
+I then proceeded to infer networks from a reduced METABRIC discovery
+dataset as used in the study(\cite{fletcher2013master}) using all 3 methods outlined above. The dataset consisted of all the 997 samples but only 2000 of the genes. The mutual information network was taken directly from the study while the other ones were inferred from scratch. For the correlation network I used Pearson correlation as a similarity function $sim$ between the expression profiles across all 997 samples for all pairs of genes. The significance of the results was tested with  a two-tailed t-test with null hypothesis that there is no correlation between the two variables(correlation=0). The calculated p-values were corrected for multiple testing and the final decision for rejecting the null hypothesis and introducing an edge between two components was done with a p-value cutoff of $0.01$. For the partial correlation I used the \texttt{corpcor} package to transform the correlation matrix between all variables into a partial correlation matrix and the significance of the results was tested with the package \texttt{GeneNet} and again the decision for an edge was based on a p-value cutoff of $0.01$. The MI inferred networks was taken directly from the study, the only processing done was to reduce the dataset down to the 2000 genes that were used in the other inferences. The resulting similarity matrices were converted to bipartite graphs between TFs and genes with \texttt{igraph}. The degree distributions of TFs can be seen in Figure \ref{fig:dgDistros}.
 
 \begin{figure}[!ht]
 \centering
-<<dgDistros, dev='pdf', echo=FALSE, results='hide', cache=TRUE>>=
+<<dgDistros, dev='pdf', echo=FALSE, results='hide', fig.height=3, cache=TRUE>>=
+#build all the networks
 p.cutoff  <- 0.01
 g.cor  <- buildNetCor(expr.data, tfs, p.cutoff)
 g.pcor  <- buildNetPCor(expr.data, tfs, p.cutoff)
 g.mi  <- buildNetMI(g.MI, tfs, annotation)
+g.mi.dpi  <- buildNetMI(g.MI.DPI, tfs, annotation)
 
+#plot degree distributions
 par(mfrow = c(1,3))
 hist(degree(g.cor, 1:100), main=NULL, xlab="TF degree")
 title(main="Correlation")
@@ -163,15 +205,17 @@ title(main="Mutual Information(MI)")
 \label{fig:dgDistros}
 \end{figure}
 
-The distribution of the edge weights for all inferred networks can be seen in Figure \ref{fig:weights}.
+The distribution of the edge weights for all inferred networks can be seen in Figure \ref{fig:weights}. We can see that most of the edges containing weights around 0 have been eliminated in Correlation and Partial Correlation networks using the statistical significance tests. The magnitude of the interaction strengths in the Partial Correlation network is lower because the indirect effects have been cancelled out. The Mutual Information network did not contain the weights but a -1 for a negative interaction and +1 for positive interaction. From that we can only observe that there are more positive than negative interactions.
 
 \begin{figure}[!ht]
 \centering
-<<weights, echo=FALSE, results='hide'>>=
+<<weights, echo=FALSE, results='hide', fig.height=3>>=
+# get graph edge weights
 cor.weights  <- get.edge.attribute(g.cor, name="weight")
 pcor.weights  <- get.edge.attribute(g.pcor, name="weight")
 mi.weights  <- get.edge.attribute(g.mi, name="weight")
 
+#plot histograms of the edge weights
 par(mfrow = c(1,3))
 hist(cor.weights, main=NULL, xlab="weight")
 title(main="Correlation")
@@ -180,12 +224,15 @@ title(main="Partial Correlation")
 hist(mi.weights, main=NULL, xlab="weight")
 title(main="Mutual Information(MI)")
 @
-\caption{}
+\caption{Histograms of edge weights for all three networks. Most of the low strength interactions have been eliminated by the statistical significan tests employed for the Correlation and Partial Correlation networks. Also notice that interactions weights are lower in the partial correlation network since all the indirect effects have been cancelled out. In the MI network the weights were discrete so we can see the numbers for negative and positive interactions.}
 \label{fig:weights}
 \end{figure}
 
 <<olapAnalysis, echo=FALSE>>=
 olapAnalysis <- function(badj.mat, vis=FALSE) {
+    # Find the overlaps between regulons of TFs and create
+    # a TFxTF network with edge weights the number of overlapping
+    # targets between them
     olaps <- badj.mat %*% t(badj.mat)
     l.regs <- sort.int(rowSums(olaps), decreasing=T, index.return=T)$ix[1:10]
     l.olaps <- olaps[l.regs, l.regs]
@@ -201,6 +248,22 @@ olapAnalysis <- function(badj.mat, vis=FALSE) {
 }
 
 @
+I then investigated the overlap between the regulons of the TFs in the
+network. Ideally the overlaps would show combinatorial regulation of
+targets by more than one TF but in reality they are spurious and and
+artefact of indirect effects. The overlaps were calculated using: $A A^T$
+where $A$ is the TFs $\times$ Targets adjacency matrix of the
+network. Consider a row $i$ of $A$ and column $j$ of $A^T$ which
+correspond to TFs $i$ and $j$ respectively. During multiplication all
+the pairwise multiplications of the vectors are summed. The pairwise
+multiplications are only 1 if both the values in the pair are 1 which
+means a shared target. Therefore the $i, j$ entry in $A A^T$ will be
+the sum of the all the occurences of shared targets or the overlap
+between regulons of TF $i$ and $j$. A network was then construted with
+the TFs as nodes and edge weights the number of overlapping targets
+between them. A visualisation of part of the network containing the 10
+TFs with the highest regulon overlap with other other TFs can be seen
+in Figure \ref{fig:olaps}.
 
 \begin{figure}
 \centering
@@ -223,7 +286,9 @@ olapAnalysis <- function(badj.mat, vis=FALSE) {
   \label{fig:olapsMI}
 \end{subfigure}
 \caption{
- Regulon overlap networks for all 3 methods.
+Networks of the 10 TFs whose regulons show the most overlap with the
+regulons of the other TFS where the original network was derived with
+(a) Cor, (b) PCor, and (c) MI(visualised with RedeR\cite{castro2012reder}). The weight of an edge is the number of overlapping targets. Here the edge weights are visualised with the width of the lines.
 }
 \label{fig:olaps}
 \end{figure}
@@ -232,10 +297,30 @@ olapAnalysis <- function(badj.mat, vis=FALSE) {
 
 \section{Network refinement}
 \subsection{Methods}
+Network refinement refers to steps performed after the initial construction of the network to remove edges from indirect effects as mentioned previously to more closely reflect the causal relationships between components of biological systems. The first method used is called DPI and it is borrowed from the field of information theory and it is naturally an extension to the network inference with Mutual Information\cite{basso2005reverse}. This methods proceeds by considering all triangles in the contructed network and then removing the weakest edge of the three, the one with the lowest MI. The reasoning for that comes from the Data Processing Inequality which is a standard result in Information Theory. Consider three random variables, which could be the 3 forming a triangle in the MI network, X, Y, and Z where the MI between X and Y is $I(X, Y)$. It is possible to get an edge between X and Z even though Z is a probabilistic function of Y only, that is $P(Z|X, Y) = P(Z|Y)$ and therefore $P(X|Y,Z) = P(X|Y)$(ie. only depends on Y directly). Then DPI states: $I(X, Z) \leq I(X, Y)$ so it will be the weaker edge between the two. The same applies for the other edges therefore by removing the weakest edge we ensure that not direct dependencies are eliminated.
 
+The other more general method considered here is a recently proposed method called Network Deconvolution(ND)\cite{feizi2013network}. The goal again is the same, to remove indirect interactions in the network, but the procedure is less topological and more numeric. This procedure relies on the observation that the observed networks is a sum of the direct interactions and all higher order interactions(two-step, three-step etc.):
+
+\begin{equation}
+G_{obs} =  G_{dir} + G_{dir}^2 + G_{dir}^2 + \dots = G_{dir}(I - G_{dir})^{-1}
+\end{equation}
+where $G_{obs}$ is the observed network and $G_{dir}$ is the direct network that produces the observed network. This infinite sum, under some assumptions, has a closed form solution. This closed form solution can be found by an eigen-decomposition of $G_{obs}$, scaling of its eigenvalues according to $\lambda_{i}^{dir} = \lambda_{i}^{dir} / (1 + \lambda_{i}^{dir})$ giving $\Sigma_{dir}$ and then reconstruction of $G_{dir} = U\Sigma_{scaled}U^{-1}$. The real procedure also includes scaling the observed matrix to ensure that the eigenvaleus are in $[0, 1]$ and convergence of the series.
+
+As mentioned before DPI is a topological process based on a standard result in Information Theory while ND is a more numeric process involving scaling the matrices. Application and interpretation of DPI filtering is more straightforward since you pass it a graph and the result is the same graph with some edges removed while the weights of the remaining edges are unchanged. ND on the other hand is more difficult to interpret and since it relies on scaling the matrices the edge weights returned are different so there is no easy way to directly compare the pre-ND and after-ND networks.
 
 \subsection{Results}
+I implemented ND following the script available from the study\cite{feizi2013network}. I then proceeded
+to test my implementation against the results obtained from the study
+on the DREAM5 network inference challenge. The correlation plots
+between the output network using my implementation and the output
+networks with the study's implementation and with the input networks
+can be seen in Figure \ref{fig:dreamND}. The output of my
+implementation shows good correlation($r=0.95$) with the output
+obtained in the study.
+
 <<ndReg, echo=FALSE>>=
+# Implementation of ND for assymetric similarity matrices
+# following the code from the study
 ndReg <- function(cor, beta=0.5, alpha=0.1) {
 
     n.tf <- nrow(cor)
@@ -263,10 +348,10 @@ ndReg <- function(cor, beta=0.5, alpha=0.1) {
           tf.net.final[x, y] -> tf.net[x, y]
           tf.net.final[y, x] -> tf.net.final[x, y]
         }
-        
-      }  
+
+      }
     }
-    
+
     cor[1:n.tf, 1:n.tf] <- tf.net.final
 
     y <- quantile(c(cor), 1-alpha)
@@ -279,18 +364,20 @@ ndReg <- function(cor, beta=0.5, alpha=0.1) {
 
     eig.res <- NULL
 
-    #if (rcond(eig.res$vectors) < 10^-10) {
-#     rp <- 0.001
-#     rand.tf <- rp * matrix(runif(n.tf*n.tf), nrow=n.tf)
-#     rand.tf <- (rand.tf + t(rand.tf)) / 2
-#     diag(rand.tf) <- 0
-#     rand.target <- rp * matrix(runif(n.tf*(n-n.tf)), nrow=n.tf)
-#     mat.rand <- cbind(rand.tf, rand.target)
-#     mat.th <- mat.th + mat.rand
+    #perturb network slightly to ensure real eigenvalues
+    rp <- 0.001
+    rand.tf <- rp * matrix(runif(n.tf*n.tf), nrow=n.tf)
+    rand.tf <- (rand.tf + t(rand.tf)) / 2
+    diag(rand.tf) <- 0
+    rand.target <- rp * matrix(runif(n.tf*(n-n.tf)), nrow=n.tf)
+    mat.rand <- cbind(rand.tf, rand.target)
+    mat.th <- mat.th + mat.rand
     mat.th <- rbind(mat.th, matrix(rep(0, (n-n.tf)*n), nrow=(n-n.tf)))
-    
+
+
+    # ND
     eig.res <- eigen(mat.th)
-    
+
     U <- eig.res$vectors
     D <- matrix(rep(0, nrow(mat.th)*nrow(mat.th)), nrow=nrow(mat.th))
     diag(D) <- eig.res$values
@@ -311,26 +398,187 @@ ndReg <- function(cor, beta=0.5, alpha=0.1) {
     net.new3 <- (net.new2 + max(m11-m2,0)) * temp.net;
     mat.nd <- net.new3 + mat.th.remain
 
+    # scale everything between [0, 1]
+    mat.nd  <- (mat.nd-min(mat.nd)) / (max(mat.nd)-min(mat.nd))
     return(mat.nd)
 }
 @
+\begin{figure}
+\centering
+<<plotCor, echo=FALSE, cache=TRUE, fig.height=3>>=
+# read input network from DREAM5 challenge
+edges  <- read.table("dream/net1_expression_data_Correlation_predictions.txt")
+colnames(edges)[3]  <- "weight"
+g.df  <- graph.data.frame(edges)
+adj.mat  <- abs(as.matrix(get.adjacency(g.df, attr="weight")))
+tfs  <- as.character(read.table("dream/net1_transcription_factors.tsv")$V1)
 
-<<plotCor, echo=FALSE>>=
-#dream stuff
-in.net  <- as.matrix(read.table("dream/net_cor.txt"))
-out.net1  <- as.matrix(read.table("dream/net_cor_nd.txt"))
+badj.mat  <- adj.mat[tfs, ]
+badj.mat.nd  <- ndReg(badj.mat)
 
-my.out.net  <- ndReg(in.net)
-par(mfrow =c(1, 2))
-plot(out.net, my.out.net)
-plot(in.net, my.out.net)
+# read output deconvoluted network from DREAM5 challenge
+edges.out  <- read.table("dream/net1_expression_data_Pearson-ND_predictions.txt")
+colnames(edges.out)[3]  <- "weight"
+g.out  <- graph.data.frame(edges.out)
+adj.out  <- abs(as.matrix(get.adjacency(g.out, attr="weight")))
+
+badj.out  <- adj.out[tfs, ]
+
+badj.out  <- badj.out[rownames(badj.mat.nd), colnames(badj.mat.nd)]
+
+ind  <- runif(1000, min=1, max=length(badj.out))
+badj.out  <- badj.out[ind]
+badj.mat.nd  <- badj.mat.nd[ind]
+badj.mat  <- badj.mat[ind]
+par(mfrow=c(1,2))
+plot(badj.out, badj.mat.nd, xlab="ND(dream5)", ylab="myND(dream5)")
+plot(badj.mat, badj.mat.nd, xlab="dream5", ylab="myND(dream5)")
+
 @
+\caption{Correlation plots between the output of my implementation of
+  ND and the study's output and between the output of my
+  implementation and the convoluted input network.}
+\label{fig:dreamND}
+\end{figure}
 
+After that I proceeded to apply the implemented ND method to the
+networks from the previous section and also the MI network from the
+study after it has been subjected to DPI filtering. The resulting
+correlation plots between convoluted and deconvoluted versions of the
+four networks(Cor, PCor, MI, MI+DPI) can be seen in Figure \ref{fig:netND}.
+
+\begin{figure}
+\centering
+<<netND, echo=FALSE, cache=TRUE>>=
+tfs.cor <- which(get.vertex.attribute(g.cor, "type") == FALSE)
+tfs.pcor  <- which(get.vertex.attribute(g.pcor, "type") == FALSE)
+tfs.mi  <- which(get.vertex.attribute(g.mi, "type") == FALSE)
+
+# plot before/after ND networks
+badj.pcor  <- as.matrix(get.adjacency(g.pcor, attr="weight"))[tfs.pcor, ]
+badj.cor  <- as.matrix(get.adjacency(g.cor, attr="weight"))[tfs.cor, ]
+badj.mi  <- as.matrix(get.adjacency(g.mi, attr="weight"))[tfs.mi, ]
+badj.mi.dpi  <- as.matrix(get.adjacency(g.mi, attr="weight"))[tfs.mi, ]
+
+badj.pcor.nd  <- ndReg(badj.pcor)
+badj.cor.nd  <- ndReg(badj.cor)
+badj.mi.nd  <- ndReg(badj.mi)
+badj.mi.dpi.nd  <- ndReg(badj.mi.dpi)
+
+par(mfrow=c(2,2))
+ind  <- runif(10000, min=1, max=length(badj.cor))
+plot(badj.pcor[ind], badj.pcor.nd[ind], xlab="PCor sim matrix", ylab="ND PCor sim matrix")
+plot(badj.cor[ind], badj.cor.nd[ind], xlab="Cor sim matrix", ylab="ND Cor sim matrix")
+plot(badj.mi[ind], badj.mi.nd[ind], xlab="MI sim matrix", ylab="ND MI sim matrix")
+plot(badj.mi.dpi[ind], badj.mi.dpi.nd[ind], xlab="MI+DPI sim matrix", ylab="ND MI+DPI sim matrix")
+
+@
+\caption{Correlation plots between convoluted and deconvoluted
+  networks for 4 networks, Cor, PCor, MI, and MI+DPI. The MI and
+  MI+DPI plots are not so interesting since the weights of the edges
+  are $\{-1, 1\}$ for positive and negative interactions. Instead of
+  plotting all the points I sampled 1000 points uniformly along the
+  distributions for efficiency purposes.}
+\label{fig:netND}
+\end{figure}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Master Regulator Analysis}
 \subsection{Methods}
 %describe how MRA works
+A form of analysis after the network contstruction and validation is the Master Regulator Analysis which is concerned with finding roots of regulatory pathways associated with a specific phenotype. Master Regulator Analysis(MRA) tries to find significant overlap between gene signature for a particular phenotype and the sets of genes controlled by the TFs in a constructed bipartite graph between TFs and genes\cite{carro2010transcriptional}. The gene signature for a particular phenotype of interest, usually a disease, can be the set of all genes found to be active(differentially expressed) in samples with that condition compared to control samples. The assumption here is that TFs sharing a lot of genes with the phenotype signature are important in pathways involved with that condition. To assess the significance of the overlap between the set of controlling genes for a TF(regulon) and the signature of a phenotype statistical tests like hypergeometric test or Fisher's Exact Test are used with a null hypothesis that the overlap occured by chance.
+TFs whose regulons have significant overlap with the gene signature are the Master Regulators.
+
 \subsection{Results}
+I applied the Master Regulator Analysis to 4 networks, specifically
+the MI and MI after application of DPI networks from the study, and
+the Correlation and partial correlations networks inferred
+previously. Gene signatures for FGFR2 signalling were obtained from
+the study. I have performed the MRA with signatures from all 3 experiments in the study and specifically contrasts "E2FGF10", "E2AP20187", "TetE2FGF10". I used a hypergeometric test to assess the significance of the overlaps with a p-value cutoff of 0.05 to reject the null hypothesis that the overlap occured by chance. For each of the networks I have looked at TFs that appeared as Master Regulators in all 3 experiments as I deemed those that appeared in all 3 experiments to be more interesting/significant. For the correlation network 17 TFs appeared in all 3 experiments and in the MI network 13. In the other two networks partial correlation and MI+DPI I have not found any TFs appearing as MRs in all 3 experiments. From these networks I picked all the TFs appearing as MRs in at least one of the experiments which gave 14 TFs for the MI+DPI network and 10 for the partial correlation network. In the following table the TFs found in at least two of the sets of significant MRs from each network:
 
+<<mraAnalysis, echo=FALSE, results='hide'>>=
+mraAnalysis <- function(g, exp="Exp1", cont="E2FGF10", p.cutoff=0.05) {
+  # Return significant overlap(p.cutoff) results between a list of gene sets and
+  # a specific experiment+contrast(exp, cont) specifying a unique signature
+  adj.mat  <- as.matrix(get.adjacency(g))
+  tfs <- which(get.vertex.attribute(g.mi, "type") == FALSE)
+  genes  <- setdiff(1:ncol(adj.mat), tfs)
+  badj.mat  <- adj.mat[tfs, genes]
+  universe  <- colnames(adj.mat)
+  sigt  <- Fletcher2013pipeline.deg(what=exp)
+  hits  <- get(cont, sigt)
+  hits  <- hits[which(hits %in% universe)]
 
+  gene.sets <- apply(badj.mat, 1, function(x) { names(which(x == 1))})
+  hgt.results  <- as.data.frame(multiHyperGeoTest(gene.sets, universe, hits))
+  sign.tfs  <- hgt.results[which(hgt.results$Pvalue < p.cutoff), ]
+
+  return(sign.tfs)
+}
+
+multTest  <- function(g, p.cutoff) {
+  # Find significant overlaps for all 3 experiments
+  # and output them in a list
+  res <- vector(mode = "list", length = 3)
+  contrasts  <- c("E2FGF10", "E2AP20187", "TetE2FGF10")
+  for(i in 1:3) {
+    print(i)
+    hgt.result <- mraAnalysis(g, exp=paste("Exp", i, sep=""), cont=contrasts[i],
+                              p.cutoff=p.cutoff)
+    res[[i]]  <- hgt.result
+  }
+
+  return(res)
+}
+
+getOlapsExp  <- function(res) {
+  # Find TFs appearing as significant in all
+  # 3 sets in res
+  fg.ids  <- lapply(res, rownames)
+  tfs.s  <- Reduce(intersect, fg.ids)
+
+  return(tfs.s)
+}
+
+getAllTFs  <- function(res) {
+  # Find all TFs appearing in the sets
+  # for the 3 experiments in res
+  fg.ids  <- lapply(res, rownames)
+  return(unlist(fg.ids))
+}
+@
+
+<<echo=FALSE, results='hide'>>=
+#get MRs for each type of network
+tfs.cor  <- getOlapsExp(multTest(g.cor, 0.05))
+tfs.mi  <- getOlapsExp(multTest(g.mi, 0.05))
+tfs.mi.dpi  <- getAllTFs(multTest(g.mi.dpi, 0.05))
+tfs.pcor  <- getAllTFs(multTest(g.pcor, 0.05))
+
+#prepare table output with MRs that appear in at least
+#2 of (tfs.cor, tfs.mi, tfs.mi.dpi, tfs.pcor)
+all.tfs  <- unique(c(tfs.cor, tfs.mi.dpi, tfs.mi, tfs.pcor))
+tfs.list  <- list(tfs.cor, tfs.pcor, tfs.mi, tfs.mi.dpi)
+
+m  <- t(sapply(all.tfs, function(tf) {sapply(tfs.list, function(l){tf %in% l})}))
+sm  <- apply(m, 1, function(x){table(x)["TRUE"]})
+sm  <- sm[sm >= 2]
+tfs.s  <- names(sm)
+tfs.symbol  <- annotation[annotation$probeID %in% tfs.s, 2]
+tfs.table  <- cbind(tfs.symbol, m[tfs.s, ])
+colnames(tfs.table) <- c("Name", "Cor", "PCor", "MI", "MI+DPI")
+
+@
+
+<<echo=FALSE, results='asis'>>=
+#output table
+xtable(as.data.frame(tfs.table), caption="Table with the most interesting TFs selected as the ones appearing in at least two of the sets
+ of significant TFs from each network type. The boolean values indicate in which networks each TFs was found as significant.")
+@
+
+\nocite{markowetz2007inferring}
+\bibliography{nba1}
 
 \end{document}
