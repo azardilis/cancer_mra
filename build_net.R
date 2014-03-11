@@ -68,8 +68,7 @@ buildNetMI <- function(g.MI, tfs, annotation) {
     return(g)
 }
 
-
-getBadj  <- function(g, weight) {
+getBadj  <- function(g, weight=FALSE) {
     if(weight == TRUE) {
       adj.mat  <- as.matrix(get.adjacency(g, attr="weight"))
     } else {
